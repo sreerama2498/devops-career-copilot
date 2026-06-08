@@ -1,0 +1,87 @@
+{
+  "name": "Wellfound Job Collector",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 8 * * *" }] }
+      },
+      "id": "schedule-trigger",
+      "name": "Daily 08:00 UTC",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [180, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://wellfound.com/role/r/devops-engineer",
+        "options": {
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (compatible; DevOps-Career-Copilot/1.0)"
+          }
+        }
+      },
+      "id": "fetch-wellfound",
+      "name": "Fetch Wellfound",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [380, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Wellfound returns HTML — extract JSON-LD job postings\nconst html = $input.first().json.data || '';\nconst matches = [...html.matchAll(/<script type=\"application\\/ld\\+json\">(.*?)<\\/script>/gs)];\nconst jobs = [];\nfor (const m of matches) {\n  try {\n    const obj = JSON.parse(m[1]);\n    if (obj['@type'] === 'JobPosting') {\n      jobs.push({\n        json: {\n          external_id: obj.url || obj.identifier?.value || '',\n          source: 'wellfound',\n          title: obj.title || '',\n          company: obj.hiringOrganization?.name || 'Unknown',\n          location: obj.jobLocation?.address?.addressLocality || 'Remote',\n          is_remote: (obj.jobLocationType || '').includes('TELECOMMUTE'),\n          url: obj.url || '',\n          description: obj.description || '',\n          required_skills: [],\n          posted_at: obj.datePosted || null,\n          currency: obj.baseSalary?.currency || 'USD',\n          salary_min: obj.baseSalary?.value?.minValue || null,\n          salary_max: obj.baseSalary?.value?.maxValue || null\n        }\n      });\n    }\n  } catch(e) {}\n}\nreturn jobs.length ? jobs : [{ json: { _empty: true } }];"
+      },
+      "id": "parse-html",
+      "name": "Parse JSON-LD",
+      "type": "n8n-nodes-base.code",
+      "position": [580, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false },
+          "conditions": [{ "leftValue": "={{ $json._empty }}", "rightValue": true, "operator": { "type": "boolean", "operation": "notEquals" } }]
+        }
+      },
+      "id": "filter-empty",
+      "name": "Filter empty",
+      "type": "n8n-nodes-base.filter",
+      "position": [780, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const jobs = $input.all().map(i => i.json);\nif (jobs.length === 0) return [];\nreturn [{ json: { source: 'wellfound', jobs } }];"
+      },
+      "id": "batch",
+      "name": "Batch",
+      "type": "n8n-nodes-base.code",
+      "position": [980, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8000/api/v1/ingest/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "x-ingest-token", "value": "" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ $json }}"
+      },
+      "id": "post-backend",
+      "name": "POST to Backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [1180, 300]
+    }
+  ],
+  "connections": {
+    "Daily 08:00 UTC": { "main": [[{ "node": "Fetch Wellfound",  "type": "main", "index": 0 }]] },
+    "Fetch Wellfound":  { "main": [[{ "node": "Parse JSON-LD",   "type": "main", "index": 0 }]] },
+    "Parse JSON-LD":    { "main": [[{ "node": "Filter empty",    "type": "main", "index": 0 }]] },
+    "Filter empty":     { "main": [[{ "node": "Batch",           "type": "main", "index": 0 }]] },
+    "Batch":            { "main": [[{ "node": "POST to Backend", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

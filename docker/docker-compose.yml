@@ -1,0 +1,90 @@
+version: "3.9"
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: copilot_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-copilot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-copilot_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-devops_copilot}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-copilot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - copilot_net
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: copilot_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-copilot}:${POSTGRES_PASSWORD:-copilot_secret}@postgres:5432/${POSTGRES_DB:-devops_copilot}
+      SECRET_KEY: ${SECRET_KEY:-change_me_in_production}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ../backend:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - copilot_net
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: copilot_n8n
+    restart: unless-stopped
+    environment:
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_USER:-admin}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_PASSWORD:-admin_secret}
+      N8N_HOST: ${N8N_HOST:-localhost}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: http://localhost:5678/
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${POSTGRES_DB:-devops_copilot}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER:-copilot}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:-copilot_secret}
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ../automation:/workflows
+    ports:
+      - "5678:5678"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - copilot_net
+  nginx:
+    image: nginx:alpine
+    container_name: copilot_nginx
+    restart: unless-stopped
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - copilot_net
+volumes:
+  postgres_data:
+  n8n_data:
+networks:
+  copilot_net:
+    driver: bridge

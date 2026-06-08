@@ -1,0 +1,83 @@
+{
+  "name": "RemoteOK Job Collector",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 6 * * *" }] }
+      },
+      "id": "schedule-trigger",
+      "name": "Daily 06:00 UTC",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [180, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://remoteok.com/api",
+        "options": {
+          "headers": { "User-Agent": "DevOps-Career-Copilot/1.0" },
+          "timeout": 30000
+        }
+      },
+      "id": "fetch-remoteok",
+      "name": "Fetch RemoteOK API",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [380, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst raw = items[0].json;\nconst jobs = Array.isArray(raw) ? raw.slice(1) : [];\n\nreturn jobs\n  .filter(j => j && j.id)\n  .filter(j => {\n    const tags = (j.tags || []).map(t => t.toLowerCase());\n    const title = (j.position || '').toLowerCase();\n    const keywords = ['devops','sre','platform','cloud','kubernetes','terraform','infrastructure','reliability'];\n    return keywords.some(k => tags.includes(k) || title.includes(k));\n  })\n  .map(j => ({\n    json: {\n      external_id: String(j.id),\n      source: 'remoteok',\n      title: j.position || '',\n      company: j.company || 'Unknown',\n      location: j.location || 'Remote',\n      is_remote: true,\n      url: j.url || `https://remoteok.com/jobs/${j.id}`,\n      description: j.description || '',\n      required_skills: j.tags || [],\n      posted_at: j.date ? new Date(j.date * 1000).toISOString() : null,\n      salary_min: j.salary_min || null,\n      salary_max: j.salary_max || null,\n      currency: 'USD'\n    }\n  }));"
+      },
+      "id": "normalise-jobs",
+      "name": "Filter + Normalise",
+      "type": "n8n-nodes-base.code",
+      "position": [580, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const jobs = $input.all().map(i => i.json);\nif (jobs.length === 0) return [];\nreturn [{ json: { source: 'remoteok', jobs } }];"
+      },
+      "id": "batch-jobs",
+      "name": "Batch into payload",
+      "type": "n8n-nodes-base.code",
+      "position": [780, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8000/api/v1/ingest/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "x-ingest-token", "value": "" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ $json }}"
+      },
+      "id": "post-to-backend",
+      "name": "POST to Backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [980, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first().json;\nconsole.log(`✓ RemoteOK ingest: received=${result.received} inserted=${result.inserted} skipped=${result.skipped}`);\nreturn $input.all();"
+      },
+      "id": "log-result",
+      "name": "Log Result",
+      "type": "n8n-nodes-base.code",
+      "position": [1180, 300]
+    }
+  ],
+  "connections": {
+    "Daily 06:00 UTC":      { "main": [[{ "node": "Fetch RemoteOK API",    "type": "main", "index": 0 }]] },
+    "Fetch RemoteOK API":   { "main": [[{ "node": "Filter + Normalise",    "type": "main", "index": 0 }]] },
+    "Filter + Normalise":   { "main": [[{ "node": "Batch into payload",    "type": "main", "index": 0 }]] },
+    "Batch into payload":   { "main": [[{ "node": "POST to Backend",       "type": "main", "index": 0 }]] },
+    "POST to Backend":      { "main": [[{ "node": "Log Result",            "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}

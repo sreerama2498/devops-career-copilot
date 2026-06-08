@@ -1,0 +1,69 @@
+{
+  "name": "Indeed RSS Collector",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 7 * * *" }] }
+      },
+      "id": "schedule-trigger",
+      "name": "Daily 07:00 UTC",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [180, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://www.indeed.com/rss?q=devops+sre+platform+engineer&l=Remote&sort=date&limit=50"
+      },
+      "id": "fetch-rss",
+      "name": "Fetch Indeed RSS",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "position": [380, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "return $input.all().map(item => {\n  const j = item.json;\n  const id = (j.link || '').split('jk=')[1]?.split('&')[0] || j.guid || j.link;\n  return {\n    json: {\n      external_id: id,\n      source: 'indeed',\n      title: j.title || '',\n      company: j.author || j['dc:creator'] || 'Unknown',\n      location: j.contentSnippet?.match(/location:\\s*(.+)/i)?.[1] || 'Remote',\n      is_remote: (j.title + j.contentSnippet || '').toLowerCase().includes('remote'),\n      url: j.link || '',\n      description: j.contentSnippet || j.content || '',\n      required_skills: [],\n      posted_at: j.isoDate || j.pubDate || null,\n      currency: 'USD'\n    }\n  };\n});"
+      },
+      "id": "normalise",
+      "name": "Normalise",
+      "type": "n8n-nodes-base.code",
+      "position": [580, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const jobs = $input.all().map(i => i.json);\nif (jobs.length === 0) return [];\nreturn [{ json: { source: 'indeed', jobs } }];"
+      },
+      "id": "batch",
+      "name": "Batch",
+      "type": "n8n-nodes-base.code",
+      "position": [780, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8000/api/v1/ingest/",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Content-Type", "value": "application/json" },
+            { "name": "x-ingest-token", "value": "" }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "body": "={{ $json }}"
+      },
+      "id": "post-backend",
+      "name": "POST to Backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [980, 300]
+    }
+  ],
+  "connections": {
+    "Daily 07:00 UTC": { "main": [[{ "node": "Fetch Indeed RSS", "type": "main", "index": 0 }]] },
+    "Fetch Indeed RSS": { "main": [[{ "node": "Normalise",        "type": "main", "index": 0 }]] },
+    "Normalise":        { "main": [[{ "node": "Batch",            "type": "main", "index": 0 }]] },
+    "Batch":            { "main": [[{ "node": "POST to Backend",  "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" }
+}
