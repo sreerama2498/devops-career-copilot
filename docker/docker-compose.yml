@@ -21,9 +21,7 @@ services:
     networks:
       - copilot_net
   backend:
-    build:
-      context: ../backend
-      dockerfile: Dockerfile
+    image: sreeramragipati/devops-copilot-backend:latest
     container_name: copilot_backend
     restart: unless-stopped
     environment:
@@ -32,8 +30,6 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       LOG_LEVEL: ${LOG_LEVEL:-info}
-    volumes:
-      - ../backend:/app
     ports:
       - "8000:8000"
     depends_on:
