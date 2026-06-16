@@ -8,7 +8,7 @@ from app.models.models import Application, ApplicationStatus, Job, JobScore
 from app.schemas.schemas import DashboardStats
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
-MOCK_USER_ID = "00000000-0000-0000-0000-000000000001"
+MOCK_USER_ID = "c828ce5d-68dd-416a-afd3-f4d427f6911e"
 
 @router.get("/stats", response_model=DashboardStats)
 async def get_stats(profile_id: UUID | None = Query(None), db: AsyncSession = Depends(get_db)):

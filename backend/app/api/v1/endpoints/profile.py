@@ -6,7 +6,7 @@ from app.models.models import CandidateProfile
 from app.schemas.schemas import ProfileCreate, ProfileRead
 
 router = APIRouter(prefix="/profile", tags=["profile"])
-MOCK_USER_ID = "00000000-0000-0000-0000-000000000001"
+MOCK_USER_ID = "c828ce5d-68dd-416a-afd3-f4d427f6911e"
 
 @router.get("/", response_model=ProfileRead)
 async def get_profile(db: AsyncSession = Depends(get_db)):

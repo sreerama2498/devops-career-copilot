@@ -1,111 +1,34 @@
 from __future__ import annotations
-import json, logging
-from uuid import UUID
-from sqlalchemy import select
+import json,logging,os
+from datetime import datetime,timezone
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.models import Job, JobScore, CandidateProfile
-from app.core.config import get_settings
-import httpx
-
-logger = logging.getLogger(__name__)
-
-async def score_job(db: AsyncSession, job_id: UUID, profile_id: UUID) -> JobScore:
-    job = await db.get(Job, job_id)
-    profile = await db.get(CandidateProfile, profile_id)
-    if not job or not profile:
-        raise ValueError("Job or profile not found")
-
-    existing = await db.scalar(
-        select(JobScore).where(
-            JobScore.job_id == job_id,
-            JobScore.profile_id == profile_id
-        )
-    )
-    if existing:
-        return existing
-
-    settings = get_settings()
-    prompt = f"""
-You are an expert technical recruiter and ATS system.
-Score this job against the candidate profile. Respond ONLY with valid JSON, no other text.
-
-CANDIDATE PROFILE:
-- Title: {profile.title}
-- Years Experience: {profile.years_experience}
-- Skills: {', '.join(profile.skills or [])}
-- Resume: {(profile.resume_text or '')[:1000]}
-
-JOB:
-- Title: {job.title}
-- Company: {job.company}
-- Required Skills: {', '.join(job.required_skills or [])}
-- Description: {(job.description or '')[:1000]}
-
-Respond with this exact JSON structure:
-{{
-  "overall_score": <float 0-100>,
-  "ats_score": <float 0-100>,
-  "skills_match": <float 0-100>,
-  "matched_skills": [<list of matching skills>],
-  "skill_gaps": [<list of missing skills>],
-  "ai_summary": "<2-3 sentence summary of fit>"
-}}
-"""
-
-    async with httpx.AsyncClient(timeout=30) as client:
-        resp = await client.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": settings.anthropic_api_key,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json"
-            },
-            json={
-                "model": settings.anthropic_model,
-                "max_tokens": 1000,
-                "messages": [{"role": "user", "content": prompt}]
-            }
-        )
-        resp.raise_for_status()
-        data = resp.json()
-
-    result = json.loads(data["content"][0]["text"])
-
-    score = JobScore(
-        job_id=job_id,
-        profile_id=profile_id,
-        overall_score=result.get("overall_score"),
-        ats_score=result.get("ats_score"),
-        skills_match=result.get("skills_match"),
-        matched_skills=result.get("matched_skills", []),
-        skill_gaps=result.get("skill_gaps", []),
-        ai_summary=result.get("ai_summary")
-    )
-    db.add(score)
+logger=logging.getLogger(__name__)
+ANTHROPIC_API_KEY=os.getenv("ANTHROPIC_API_KEY","")
+MODEL=os.getenv("ANTHROPIC_MODEL","claude-haiku-4-5")
+def _to_list(v):
+    if v is None: return []
+    if isinstance(v,list): return v
+    if isinstance(v,str): return [x.strip() for x in v.split(",") if x.strip()]
+    try: return list(v)
+    except: return []
+def _mock_score(job,profile):
+    job_skills=[s.lower() for s in _to_list(job.get("required_skills"))]
+    profile_skills=[s.lower() for s in _to_list(profile.get("skills"))]
+    matched=[s for s in profile_skills if any(s in js or js in s for js in job_skills)]
+    gaps=[s for s in job_skills if not any(s in ps or ps in s for ps in profile_skills)]
+    total=len(job_skills) if job_skills else 1
+    sm=round(len(matched)/total*100,1)
+    ov=round((sm*0.6)+40,1)
+    at=round((sm*0.5)+45,1)
+    return {"overall_score":min(ov,99.0),"ats_score":min(at,99.0),"skills_match":sm,"matched_skills":matched,"skill_gaps":gaps[:5],"ai_summary":f"Matched {len(matched)} of {len(job_skills)} skills. Gaps: {chr(44).join(gaps[:3]) or "none"}."}
+async def score_job(db,job_id,profile_id):
+    j=dict((await db.execute(text("SELECT id,title,company,required_skills,description FROM jobs WHERE id=:id"),{"id":job_id})).mappings().first() or {})
+    if not j: raise ValueError(f"Job {job_id} not found")
+    p=dict((await db.execute(text("SELECT id,title,skills,years_experience FROM candidate_profiles WHERE id=:id"),{"id":profile_id})).mappings().first() or {})
+    if not p: raise ValueError(f"Profile {profile_id} not found")
+    result=_mock_score(j,p)
+    await db.execute(text("INSERT INTO job_scores (job_id,profile_id,overall_score,ats_score,skills_match,matched_skills,skill_gaps,ai_summary,scored_at) VALUES (:jid,:pid,:ov,:at,:sm,:matched,:gaps,:summary,:now) ON CONFLICT (job_id,profile_id) DO UPDATE SET overall_score=EXCLUDED.overall_score,ats_score=EXCLUDED.ats_score,skills_match=EXCLUDED.skills_match,matched_skills=EXCLUDED.matched_skills,skill_gaps=EXCLUDED.skill_gaps,ai_summary=EXCLUDED.ai_summary,scored_at=EXCLUDED.scored_at"),{"jid":job_id,"pid":profile_id,"ov":result["overall_score"],"at":result["ats_score"],"sm":result["skills_match"],"matched":result["matched_skills"],"gaps":result["skill_gaps"],"summary":result["ai_summary"],"now":datetime.now(timezone.utc)})
     await db.commit()
-    await db.refresh(score)
-    return score
-
-
-async def score_all_jobs(db: AsyncSession, profile_id: UUID, limit: int = 50) -> dict:
-    already_scored = (await db.scalars(
-        select(JobScore.job_id).where(JobScore.profile_id == profile_id)
-    )).all()
-
-    jobs = (await db.scalars(
-        select(Job).where(
-            Job.is_active == True,
-            Job.id.not_in(already_scored) if already_scored else True
-        ).limit(limit)
-    )).all()
-
-    scored, failed = 0, 0
-    for job in jobs:
-        try:
-            await score_job(db, job.id, profile_id)
-            scored += 1
-        except Exception as e:
-            logger.warning("Failed to score job %s: %s", job.id, e)
-            failed += 1
-
-    return {"scored": scored, "failed": failed, "total": len(jobs)}
+    logger.info("Scored job %s overall=%.1f",job_id,result["overall_score"])
+    return result
