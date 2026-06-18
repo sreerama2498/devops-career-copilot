@@ -8,8 +8,8 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-export const getDashboardStats    = () => api.get("/dashboard/stats?profile_id=00000000-0000-0000-0000-000000000001")
-export const getJobs              = (params = {}) => api.get("/jobs/", { params })
+export const getDashboardStats    = () => api.get("/dashboard/stats?profile_id=c828ce5d-68dd-416a-afd3-f4d427f6911e")
+export const getJobs              = (params = {}) => api.get("/jobs/", { params: { profile_id: "c828ce5d-68dd-416a-afd3-f4d427f6911e", ...params } })
 export const getJob               = (id) => api.get(`/jobs/${id}`)
 export const getApplications      = (params = {}) => api.get("/applications/", { params })
 export const createApplication    = (data) => api.post("/applications/", data)

@@ -11,7 +11,7 @@ const SRC = {
 }
 
 export default function JobCard({ job, onClick, compact = false }) {
-  const score = job.ai_score ?? job.score ?? null
+  const score = job.overall_score ?? job.ai_score ?? job.score ?? null
   const src = (job.source || '').toLowerCase()
   const srcStyle = SRC[src] || { bg: 'rgba(255,255,255,0.06)', color: 'var(--text-secondary)' }
 
