@@ -26,17 +26,17 @@ async def get_stats(profile_id: UUID | None = Query(None), db: AsyncSession = De
 
     active_apps = (await db.execute(
         text("SELECT COUNT(*) FROM applications WHERE user_id=:uid AND status IN ('applied','screening','interview','offer')"),
-        {"uid": "c828ce5d-68dd-416a-afd3-f4d427f6911e"}
+        {"uid": "00000000-0000-0000-0000-000000000001"}
     )).scalar() or 0
 
     interviews = (await db.execute(
         text("SELECT COUNT(*) FROM applications WHERE user_id=:uid AND status='interview'"),
-        {"uid": "c828ce5d-68dd-416a-afd3-f4d427f6911e"}
+        {"uid": "00000000-0000-0000-0000-000000000001"}
     )).scalar() or 0
 
     rows = await db.execute(
         text("SELECT status, COUNT(*) FROM applications WHERE user_id=:uid GROUP BY status"),
-        {"uid": "c828ce5d-68dd-416a-afd3-f4d427f6911e"}
+        {"uid": "00000000-0000-0000-0000-000000000001"}
     )
     by_status = {str(r[0]): r[1] for r in rows}
 

@@ -7,7 +7,7 @@ from app.models.models import Application, Interview
 from app.schemas.schemas import ApplicationCreate, ApplicationRead, ApplicationUpdate, InterviewCreate, InterviewRead
 
 router = APIRouter(prefix="/applications", tags=["applications"])
-MOCK_USER_ID = "c828ce5d-68dd-416a-afd3-f4d427f6911e"
+MOCK_USER_ID = "00000000-0000-0000-0000-000000000001"
 
 @router.get("/", response_model=list[ApplicationRead])
 async def list_applications(status: str | None = None, db: AsyncSession = Depends(get_db)):
