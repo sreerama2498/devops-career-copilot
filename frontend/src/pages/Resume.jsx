@@ -34,7 +34,7 @@ export default function Resume() {
       setResult(res.data)
       setTab("resume")
     } catch(e) {
-      setError(e.response?.data?.detail || "Generation failed — check backend logs")
+      setError(e.response?.status === 404 ? "Resume generation requires Anthropic API key — coming in Phase 7" : e.response?.data?.detail || "Generation failed")
     } finally {
       setLoading(false)
     }
