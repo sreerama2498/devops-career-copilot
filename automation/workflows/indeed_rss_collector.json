@@ -21,7 +21,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return $input.all().map(item => {\n  const j = item.json;\n  const id = (j.link || '').split('jk=')[1]?.split('&')[0] || j.guid || j.link;\n  return {\n    json: {\n      external_id: id,\n      source: 'indeed',\n      title: j.title || '',\n      company: j.author || j['dc:creator'] || 'Unknown',\n      location: j.contentSnippet?.match(/location:\\s*(.+)/i)?.[1] || 'Remote',\n      is_remote: (j.title + j.contentSnippet || '').toLowerCase().includes('remote'),\n      url: j.link || '',\n      description: j.contentSnippet || j.content || '',\n      required_skills: [],\n      posted_at: j.isoDate || j.pubDate || null,\n      currency: 'USD'\n    }\n  };\n});"
+        "jsCode": "return $input.all().map(item => {\n  const j = item.json;\n  const id = (j.link || '').split('jk=')[1]?.split('&')[0] || j.guid || j.link;\n  return {\n    json: {\n      external_id: id,\n      source: 'indeed',\n      title: j.title || '',\n      company:\n        j.author ||\n        j[\"dc:creator\"] ||\n        j.creator ||\n        \"Unknown\",\n      location: j.contentSnippet?.match(/location:\\s*(.+)/i)?.[1] || 'Remote',\n      is_remote:\n        `${j.title || \"\"} ${j.contentSnippet || \"\"}`\n          .toLowerCase()\n          .includes(\"remote\"),\n      url: j.link || '',\n      description:\n        j.content ||\n        j.contentSnippet ||\n        j.summary ||\n        \"\",\n      required_skills: [],\n      posted_at: j.isoDate || j.pubDate || null,\n      currency: 'USD'\n    }\n  };\n});"
       },
       "id": "normalise",
       "name": "Normalise",
@@ -56,13 +56,23 @@
       "name": "POST to Backend",
       "type": "n8n-nodes-base.httpRequest",
       "position": [980, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = $input.first().json;\n\nconsole.log(\n`✓ Indeed RSS ingest:\nreceived=${result.received}\ninserted=${result.inserted}\nskipped=${result.skipped}`\n);\n\nreturn $input.all();"
+      },
+      "id": "log-result",
+      "name": "Log Result",
+      "type": "n8n-nodes-base.code",
+      "position": [1180, 300]
     }
   ],
   "connections": {
     "Daily 07:00 UTC": { "main": [[{ "node": "Fetch Indeed RSS", "type": "main", "index": 0 }]] },
     "Fetch Indeed RSS": { "main": [[{ "node": "Normalise",        "type": "main", "index": 0 }]] },
     "Normalise":        { "main": [[{ "node": "Batch",            "type": "main", "index": 0 }]] },
-    "Batch":            { "main": [[{ "node": "POST to Backend",  "type": "main", "index": 0 }]] }
+    "Batch":            { "main": [[{ "node": "POST to Backend",  "type": "main", "index": 0 }]] },
+    "POST to Backend":  { "main": [[{ "node": "Log Result",       "type": "main", "index": 0 }]] }
   },
   "active": false,
   "settings": { "executionOrder": "v1" }
