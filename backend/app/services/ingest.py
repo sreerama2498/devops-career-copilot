@@ -76,15 +76,24 @@ async def ingest_jobs(db, raw_jobs):
             )
 
             print("=" * 70)
-            print(f"TITLE      : {p['title']}")
-            print(f"TITLE      : {breakdown.title_score}")
-            print(f"TECH       : {breakdown.tech_score}")
-            print(f"CLOUD      : {breakdown.cloud_score}")
-            print(f"INFRA      : {breakdown.infra_score}")
-            print(f"REMOTE     : {breakdown.remote_score}")
-            print(f"SENIORITY  : {breakdown.seniority_score}")
-            print(f"TOTAL      : {breakdown.total_score}")
+            print(f"JOB TITLE        : {p['title']}")
+            print(f"TITLE SCORE      : {breakdown.title_score}")
+            print(f"TECH SCORE       : {breakdown.tech_score}")
+            print(f"CLOUD SCORE      : {breakdown.cloud_score}")
+            print(f"INFRA SCORE      : {breakdown.infra_score}")
+            print(f"REMOTE SCORE     : {breakdown.remote_score}")
+            print(f"SENIORITY SCORE  : {breakdown.seniority_score}")
+            print(f"TOTAL SCORE      : {breakdown.total_score}")
+            print(f"REJECTED         : {breakdown.rejected}")
+            print(f"TITLE TIER       : {breakdown.matched_title_tier}")
+            print(f"MATCHED TECH     : {breakdown.matched_tech}")
+            print(f"MATCHED CLOUD    : {breakdown.matched_cloud}")
+            print(f"MATCHED INFRA    : {breakdown.matched_infra}")
             print("=" * 70)
+
+            if breakdown.rejected:
+                skipped += 1
+                continue
 
             score = breakdown.total_score
 
