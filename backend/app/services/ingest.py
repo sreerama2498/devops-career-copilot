@@ -3,15 +3,16 @@ import logging, uuid
 from datetime import datetime, timezone
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-
+from app.services.job_filter import (
+    calculate_relevance_score,
+    should_ingest,
+)
 logger = logging.getLogger(__name__)
-
 def _parse_dt(v):
     if not v: return None
     if isinstance(v, datetime): return v
     try: return datetime.fromisoformat(str(v).replace('Z','+00:00'))
     except: return None
-
 def _n(r):
     s = r.get('salary', {})
     sm = r.get('salary_min') or (s.get('min') if isinstance(s, dict) else None)
@@ -33,7 +34,6 @@ def _n(r):
         'posted':   _parse_dt(r.get('posted_at') or r.get('date')),
         'now':      datetime.now(timezone.utc),
     }
-
 Q = text("""
     INSERT INTO jobs (
         external_id, source, title, company, location, is_remote,
@@ -60,12 +60,23 @@ Q = text("""
         is_active       = true,
         collected_at    = EXCLUDED.collected_at
 """)
-
 async def ingest_jobs(db, raw_jobs):
     received, inserted, skipped = len(raw_jobs), 0, 0
     for r in raw_jobs:
         try:
             p = _n(r)
+
+            score = calculate_relevance_score(
+                p["title"],
+                p["skills"],
+                is_remote=p["remote"],
+                location=p["location"],
+                description=p["desc"],
+            )
+
+            if not should_ingest(score):
+                skipped += 1
+                continue
             if not p['url']:
                 skipped += 1
                 continue
