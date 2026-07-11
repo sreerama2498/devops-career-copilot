@@ -60,3 +60,19 @@ class DashboardStats(BaseModel):
     jobs_collected_today: int; avg_match_score: float
     active_applications: int; interviews_scheduled: int
     applications_by_status: dict[str, int]
+
+class ScoreTrendPoint(BaseModel):
+    date: str; avg_score: float; jobs_scored: int
+
+class SourcePerformance(BaseModel):
+    source: str; jobs_collected: int; avg_score: float
+    applications: int; conversion_rate: float
+
+class FunnelStage(BaseModel):
+    status: str; count: int
+
+class AnalyticsOverview(BaseModel):
+    score_trends: list[ScoreTrendPoint]
+    source_performance: list[SourcePerformance]
+    funnel: list[FunnelStage]
+    dropped: list[FunnelStage]

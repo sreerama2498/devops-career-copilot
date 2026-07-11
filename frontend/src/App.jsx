@@ -5,7 +5,8 @@ import Jobs from "./pages/Jobs"
 import Applications from "./pages/Applications"
 import Profile from "./pages/Profile"
 import Resume from "./pages/Resume"
-import { AnalyticsPage, SettingsPage } from "./pages/Placeholders"
+import Analytics from "./pages/Analytics"
+import { SettingsPage } from "./pages/Placeholders"
 
 export default function App() {
   return (
@@ -17,7 +18,7 @@ export default function App() {
           <Route path="/jobs"          element={<Jobs />} />
           <Route path="/applications"  element={<Applications />} />
           <Route path="/resume"        element={<Resume />} />
-          <Route path="/analytics"     element={<AnalyticsPage />} />
+          <Route path="/analytics"     element={<Analytics />} />
           <Route path="/settings"      element={<SettingsPage />} />
           <Route path="/profile"       element={<Profile />} />
         </Routes>

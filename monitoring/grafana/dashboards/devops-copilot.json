@@ -1,0 +1,161 @@
+{
+  "dashboard": {
+    "title": "DevOps Career Copilot",
+    "uid": "devops-copilot",
+    "timezone": "browser",
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "type": "stat",
+        "title": "Total HTTP Requests",
+        "gridPos": {
+          "x": 0,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "sum(http_requests_total{job='devops-copilot-backend'})",
+            "legendFormat": "Total"
+          }
+        ],
+        "options": {
+          "colorMode": "background"
+        }
+      },
+      {
+        "id": 2,
+        "type": "stat",
+        "title": "Request Rate (req/s)",
+        "gridPos": {
+          "x": 6,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{job='devops-copilot-backend'}[5m]))",
+            "legendFormat": "Rate"
+          }
+        ],
+        "options": {
+          "colorMode": "background"
+        }
+      },
+      {
+        "id": 3,
+        "type": "stat",
+        "title": "Error Rate",
+        "gridPos": {
+          "x": 12,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "sum(rate(http_requests_total{job='devops-copilot-backend',status=~'5..'}[5m]))",
+            "legendFormat": "Errors"
+          }
+        ],
+        "options": {
+          "colorMode": "background"
+        }
+      },
+      {
+        "id": 4,
+        "type": "stat",
+        "title": "Avg Response Time (ms)",
+        "gridPos": {
+          "x": 18,
+          "y": 0,
+          "w": 6,
+          "h": 4
+        },
+        "targets": [
+          {
+            "expr": "avg(rate(http_request_duration_seconds_sum{job='devops-copilot-backend'}[5m])/rate(http_request_duration_seconds_count{job='devops-copilot-backend'}[5m])) * 1000",
+            "legendFormat": "Avg"
+          }
+        ],
+        "options": {
+          "colorMode": "background"
+        }
+      },
+      {
+        "id": 5,
+        "type": "timeseries",
+        "title": "HTTP Requests Over Time",
+        "gridPos": {
+          "x": 0,
+          "y": 4,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "sum by(handler) (rate(http_requests_total{job='devops-copilot-backend'}[5m]))",
+            "legendFormat": "{{handler}}"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "type": "timeseries",
+        "title": "Response Time by Endpoint",
+        "gridPos": {
+          "x": 12,
+          "y": 4,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum by(le,handler) (rate(http_request_duration_seconds_bucket{job='devops-copilot-backend'}[5m])))",
+            "legendFormat": "p95 {{handler}}"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "type": "timeseries",
+        "title": "HTTP Status Codes",
+        "gridPos": {
+          "x": 0,
+          "y": 12,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "sum by(status) (rate(http_requests_total{job='devops-copilot-backend'}[5m]))",
+            "legendFormat": "HTTP {{status}}"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "type": "timeseries",
+        "title": "Active Connections",
+        "gridPos": {
+          "x": 12,
+          "y": 12,
+          "w": 12,
+          "h": 8
+        },
+        "targets": [
+          {
+            "expr": "http_requests_in_progress{job='devops-copilot-backend'}",
+            "legendFormat": "In Progress"
+          }
+        ]
+      }
+    ],
+    "schemaVersion": 38,
+    "version": 1
+  },
+  "overwrite": true
+}

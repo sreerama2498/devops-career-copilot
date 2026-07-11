@@ -21,7 +21,9 @@ services:
     networks:
       - copilot_net
   backend:
-    image: sreeramragipati/devops-copilot-backend:latest
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
     container_name: copilot_backend
     restart: unless-stopped
     environment:
@@ -30,6 +32,8 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ENVIRONMENT: ${ENVIRONMENT:-development}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - ../backend/app:/app/app
     ports:
       - "8000:8000"
     depends_on:
@@ -66,6 +70,55 @@ services:
         condition: service_healthy
     networks:
       - copilot_net
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: copilot_prometheus
+    restart: unless-stopped
+    volumes:
+      - ../monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    ports:
+      - "9090:9090"
+    depends_on:
+      - backend
+    networks:
+      - copilot_net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: copilot_grafana
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-copilot_grafana}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ../monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - copilot_net
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    container_name: copilot_uptime
+    restart: unless-stopped
+    volumes:
+      - uptime_data:/app/data
+    ports:
+      - "3002:3001"
+    networks:
+      - copilot_net
   nginx:
     image: nginx:alpine
     container_name: copilot_nginx
@@ -81,6 +134,9 @@ services:
 volumes:
   postgres_data:
   n8n_data:
+  prometheus_data:
+  grafana_data:
+  uptime_data:
 networks:
   copilot_net:
     driver: bridge

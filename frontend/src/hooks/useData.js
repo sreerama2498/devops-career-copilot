@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { getDashboardStats, getJobs, getApplications, updateApplication } from '../api/client'
+import { getDashboardStats, getJobs, getApplications, updateApplication, getAnalyticsOverview } from '../api/client'
 
 export function useDashboardStats() {
   const [stats, setStats] = useState(null)
@@ -62,4 +62,22 @@ export function useApplications() {
   }, [fetch])
 
   return { applications, loading, error, refetch: fetch, moveApplication }
+}
+
+export function useAnalytics(days = 30) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  const fetch = useCallback(async () => {
+    try {
+      setLoading(true)
+      const res = await getAnalyticsOverview({ days })
+      setData(res.data)
+    } catch (e) { setError(e) }
+    finally { setLoading(false) }
+  }, [days])
+
+  useEffect(() => { fetch() }, [fetch])
+  return { data, loading, error, refetch: fetch }
 }

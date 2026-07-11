@@ -9,6 +9,7 @@ api.interceptors.request.use((config) => {
 })
 
 export const getDashboardStats    = () => api.get("/dashboard/stats?profile_id=c828ce5d-68dd-416a-afd3-f4d427f6911e")
+export const getAnalyticsOverview = (params = {}) => api.get("/analytics/overview", { params: { profile_id: "c828ce5d-68dd-416a-afd3-f4d427f6911e", days: 30, ...params } })
 export const getJobs              = (params = {}) => api.get("/jobs/", { params: { profile_id: "c828ce5d-68dd-416a-afd3-f4d427f6911e", ...params } })
 export const getJob               = (id) => api.get(`/jobs/${id}`)
 export const getApplications      = (params = {}) => api.get("/applications/", { params })

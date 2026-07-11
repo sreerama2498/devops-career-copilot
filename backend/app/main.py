@@ -19,5 +19,8 @@ app = FastAPI(title=settings.app_name, version="0.1.0", lifespan=lifespan, docs_
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000","http://localhost:5173"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 app.include_router(router)
 
+from prometheus_fastapi_instrumentator import Instrumentator
+Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+
 @app.get("/health", tags=["health"])
 async def health(): return {"status": "ok", "service": settings.app_name}
