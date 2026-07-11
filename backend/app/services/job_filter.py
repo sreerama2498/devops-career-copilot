@@ -26,11 +26,9 @@ TITLE_REJECT = {
     "teacher", "nurse", "customer success", "account manager",
 }
 
-TITLE_HIGH = {"devops engineer"}                      # +35
+TITLE_HIGH = {"devops"}                                # +35
 TITLE_VERY_HIGH = {                                    # +30
-    "platform reliability engineer", "platform engineer",
-    "site reliability engineer", "sre", "infrastructure engineer",
-    "cloud engineer",
+    "platform", "site reliability", "sre", "cloud", "infrastructure",
 }
 TITLE_MEDIUM = {                                       # +20
     "linux engineer", "build engineer", "release engineer",

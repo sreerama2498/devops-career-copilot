@@ -5,6 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.job_filter import (
     calculate_relevance_score,
+    score_job_relevance,
     should_ingest,
 )
 logger = logging.getLogger(__name__)
@@ -66,13 +67,26 @@ async def ingest_jobs(db, raw_jobs):
         try:
             p = _n(r)
 
-            score = calculate_relevance_score(
-                p["title"],
-                p["skills"],
+            breakdown = score_job_relevance(
+                title=p["title"],
+                skills=p["skills"],
                 is_remote=p["remote"],
                 location=p["location"],
                 description=p["desc"],
             )
+
+            print("=" * 70)
+            print(f"TITLE      : {p['title']}")
+            print(f"TITLE      : {breakdown.title_score}")
+            print(f"TECH       : {breakdown.tech_score}")
+            print(f"CLOUD      : {breakdown.cloud_score}")
+            print(f"INFRA      : {breakdown.infra_score}")
+            print(f"REMOTE     : {breakdown.remote_score}")
+            print(f"SENIORITY  : {breakdown.seniority_score}")
+            print(f"TOTAL      : {breakdown.total_score}")
+            print("=" * 70)
+
+            score = breakdown.total_score
 
             if not should_ingest(score):
                 skipped += 1
